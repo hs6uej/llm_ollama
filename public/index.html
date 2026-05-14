@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ollama Knowledge Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root { --accent: #6c63ff; --accent2: #5a55d2; }
+    body { background: #f0f2f5; min-height: 100vh; font-size: .93rem; }
+
+    /* Navbar */
+    .topbar { background: linear-gradient(135deg, var(--accent) 0%, #3f3d99 100%); }
+
+    /* Tabs */
+    .nav-tabs .nav-link { color: #555; border-radius: 10px 10px 0 0; padding: .55rem 1.1rem; font-weight: 500; }
+    .nav-tabs .nav-link.active { color: var(--accent); font-weight: 700; border-bottom: 2px solid #fff; }
+    .nav-tabs .nav-link:hover:not(.active) { background: rgba(108,99,255,.07); }
+    .tab-content { background:#fff; border:1px solid #dee2e6; border-top:none; border-radius:0 0 14px 14px; padding:1.4rem; }
+
+    /* Cards */
+    .card { border:none; border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,.07); }
+    .card-header { border-radius:14px 14px 0 0!important; background:#fff; border-bottom:1px solid #f0f0f0; }
+    .stat-card { border-left:4px solid; }
+    .stat-card.c1 { border-color:var(--accent); }
+    .stat-card.c2 { border-color:#28a745; }
+    .stat-card.c3 { border-color:#17a2b8; }
+    .stat-card.c4 { border-color:#f7b731; }
+
+    /* Buttons */
+    .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; }
+    .btn-primary:hover { background:linear-gradient(135deg,var(--accent2),#4a45c2); }
+    .btn-warning { background:linear-gradient(135deg,#f7b731,#e07c24); border:none; color:#fff; }
+    .btn-warning:hover { background:linear-gradient(135deg,#e07c24,#c96a10); color:#fff; }
+
+    /* Model cards */
+    .model-card { transition: transform .15s, box-shadow .15s; cursor:default; }
+    .model-card:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(108,99,255,.15)!important; }
+    .model-card .card-header { border-radius:14px 14px 0 0!important; padding:.75rem 1rem; }
+    .model-card .built-badge { font-size:.72rem; }
+    .mc-accent { height:4px; border-radius:14px 14px 0 0; background:linear-gradient(90deg,var(--accent),#a18cd1); }
+
+    /* Table */
+    .table th { background:rgba(108,99,255,.06); color:var(--accent); font-weight:600; }
+    .table-hover tbody tr:hover { background:rgba(108,99,255,.03); }
+    .badge-topic { background:rgba(108,99,255,.12); color:var(--accent); border-radius:6px; padding:.28rem .65rem; font-size:.8rem; }
+
+    /* Code */
+    .code-wrap { background:#1e1e2e; color:#cdd6f4; border-radius:10px; font-family:'Consolas','Courier New',monospace; font-size:.8rem; position:relative; padding:1rem; }
+    .code-wrap pre { margin:0; white-space:pre-wrap; word-break:break-all; color:#cdd6f4; }
+    .copy-btn { position:absolute; top:.5rem; right:.5rem; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); color:#fff; border-radius:6px; padding:2px 9px; font-size:.72rem; cursor:pointer; transition:background .2s; }
+    .copy-btn:hover { background:rgba(255,255,255,.25); }
+    .copy-btn.ok { background:rgba(40,167,69,.4); }
+    .modelfile-box { background:#1e1e2e; color:#a6e3a1; border-radius:10px; padding:1.2rem; font-family:'Consolas','Courier New',monospace; font-size:.78rem; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; }
+
+    /* Chat */
+    .chat-box { height:400px; overflow-y:auto; background:#f8f9fa; border-radius:12px; padding:1rem; }
+    .bubble { max-width:76%; padding:.65rem .95rem; border-radius:18px; margin-bottom:.6rem; word-wrap:break-word; line-height:1.55; }
+    .bubble.user { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
+    .bubble.bot  { background:#fff; color:#333; box-shadow:0 2px 8px rgba(0,0,0,.09); border-bottom-left-radius:4px; }
+    .bubble.err  { background:#fff3cd; color:#856404; }
+    .chat-meta { font-size:.7rem; color:#aaa; margin-bottom:.4rem; }
+
+    /* System prompt panel */
+    .sys-panel { border:1.5px solid #dee2e6; border-radius:10px; margin-bottom:.85rem; overflow:hidden; transition:border-color .2s; }
+    .sys-panel.sp-on { border-color:#f7b731; }
+    .sys-panel-head { display:flex; align-items:center; gap:.75rem; padding:.5rem .85rem; background:#f8f9fa; }
+    .sys-panel.sp-on .sys-panel-head { background:#fffbea; }
+    .sys-panel-body { padding:.7rem .85rem .6rem; background:#fff; }
+    .form-check-input:checked { background-color:#f7b731; border-color:#f7b731; }
+    #sysPromptTa { resize:vertical; font-size:.84rem; min-height:64px; }
+    #sysPromptTa:focus { border-color:#f7b731; box-shadow:0 0 0 .2rem rgba(247,183,49,.18); }
+    .sp-dot { width:7px; height:7px; border-radius:50%; background:#28a745; display:inline-block; opacity:0; transition:opacity .3s; }
+    .sp-dot.show { opacity:1; }
+
+    /* Status dot */
+    .status-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .status-dot.online  { background:#28a745; box-shadow:0 0 6px #28a745; }
+    .status-dot.offline { background:#dc3545; box-shadow:0 0 6px #dc3545; }
+    .status-dot.checking { background:#f7b731; animation:blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* History */
+    .history-msg { padding:.45rem .8rem; border-radius:8px; margin-bottom:.35rem; font-size:.84rem; }
+    .history-msg.user { background:rgba(108,99,255,.1); }
+    .history-msg.assistant { background:#f0f0f0; }
+    .session-row { cursor:pointer; }
+    .session-row:hover td { background:rgba(108,99,255,.04); }
+    .session-detail { background:#fafafa; }
+
+    /* Loading overlay */
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; align-items:center; justify-content:center; }
+    .overlay.show { display:flex; }
+
+    /* Empty state */
+    .empty-state { text-align:center; padding:3rem 1rem; color:#aaa; }
+    .empty-state i { font-size:2.8rem; margin-bottom:.8rem; display:block; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ NAVBAR ═══════════════════════════════════════════════════════════════ -->
+<nav class="navbar topbar navbar-dark py-2 mb-0">
+  <div class="container-fluid px-4">
+    <span class="navbar-brand fw-bold fs-5 mb-0">
+      <i class="fas fa-brain me-2"></i>Ollama Knowledge Manager
+    </span>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="status-dot checking" id="sDot"></span>
+      <small class="text-white-50" id="sText">กำลังตรวจสอบ...</small>
+      <button class="btn btn-sm btn-outline-light" onclick="checkStatus()"><i class="fas fa-sync-alt"></i></button>
+      <span class="text-white-50 d-none" id="navTokenInfo" style="font-size:.8rem"></span>
+      <span class="text-white-50 d-none align-items-center gap-1" id="navUser">
+        <i class="fas fa-user-circle"></i>
+        <span id="navUsername" class="fw-semibold"></span>
+        <span id="navRoleBadge" class="badge ms-1"></span>
+      </span>
+      <button class="btn btn-sm btn-outline-light d-none" id="logoutBtn" onclick="logout()">
+        <i class="fas fa-sign-out-alt me-1"></i>ออก
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ══════════════════════════════════════════════════════════════════ -->
+<div class="container-fluid px-4 py-4">
+
+  <!-- Stats Row -->
+  <div class="row g-3 mb-4" id="statsRow">
+    <div class="col-6 col-md-3">
+      <div class="card stat-card c1 p-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="bg-primary bg-opacity-10 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:46px;height:46px">
+            <i class="fas fa-robot text-primary fs-5"></i>
+          </div>
+          <div><div class="text-muted small">Custom Models</div><div class="fw-bold fs-4 text-primary lh-1" id="stM">0</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card stat-card c2 p-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="bg-success bg-opacity-10 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:46px;height:46px">
+            <i class="fas fa-book text-success fs-5"></i>
+          </div>
+          <div><div class="text-muted small">Knowledge ทั้งหมด</div><div class="fw-bold fs-4 text-success lh-1" id="stK">0</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card stat-card c3 p-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="bg-info bg-opacity-10 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:46px;height:46px">
+            <i class="fas fa-comments text-info fs-5"></i>
+          </div>
+          <div><div class="text-muted small">Chat Sessions</div><div class="fw-bold fs-4 text-info lh-1" id="stS">0</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card stat-card c4 p-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="bg-warning bg-opacity-10 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:46px;height:46px">
+            <i class="fas fa-message text-warning fs-5"></i>
+          </div>
+          <div><div class="text-muted small">Messages</div><div class="fw-bold fs-4 text-warning lh-1" id="stMsg">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs Nav -->
+  <ul class="nav nav-tabs mb-0" id="mainTabs">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabModels" onclick="loadCustomModels()">
+        <i class="fas fa-robot me-1"></i>Models
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabKnowledge">
+        <i class="fas fa-book-open me-1"></i>Knowledge
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabBuild">
+        <i class="fas fa-hammer me-1"></i>Build
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabChat" onclick="loadOllamaModels()">
+        <i class="fas fa-comments me-1"></i>Test Chat
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabHistory" onclick="loadHistory()">
+        <i class="fas fa-history me-1"></i>History
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCurl" onclick="renderCurl()">
+        <i class="fas fa-terminal me-1"></i>Curl
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSettings">
+        <i class="fas fa-cog me-1"></i>Settings
+      </button>
+    </li>
+    <li class="nav-item d-none" id="adminTabItem">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabAdmin" onclick="loadAdminData()">
+        <i class="fas fa-shield-alt me-1"></i>Admin
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ══ MODELS ══════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade show active" id="tabModels">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-robot me-2 text-primary"></i>Custom Models</h5>
+        <button class="btn btn-primary btn-sm px-3" onclick="openModelModal()">
+          <i class="fas fa-plus me-1"></i>New Model
+        </button>
+      </div>
+      <div class="row g-3" id="modelsGrid">
+      </div>
+    </div>
+
+    <!-- ══ KNOWLEDGE ════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabKnowledge">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <h5 class="mb-0 fw-bold"><i class="fas fa-book-open me-2 text-success"></i>Knowledge</h5>
+          <select class="form-select form-select-sm" id="kModelSel" style="width:220px" onchange="onKModelChange()">
+            <option value="">— เลือก Model —</option>
+          </select>
+        </div>
+        <button class="btn btn-success btn-sm px-3" id="addKBtn" onclick="openKModal()" disabled>
+          <i class="fas fa-plus me-1"></i>เพิ่ม Knowledge
+        </button>
+      </div>
+      <div id="kListWrap">
+        <div class="empty-state"><i class="fas fa-arrow-up"></i><p>เลือก Model ด้านบนก่อน</p></div>
+      </div>
+    </div>
+
+    <!-- ══ BUILD ════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabBuild">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-hammer me-2 text-warning"></i>Build Model</h5>
+        <select class="form-select form-select-sm" id="bModelSel" style="width:230px" onchange="onBModelChange()">
+          <option value="">— เลือก Model —</option>
+        </select>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <div class="fw-semibold mb-2 text-muted small"><i class="fas fa-file-code me-1"></i>Modelfile Preview</div>
+          <div class="modelfile-box" id="mfBox">// เลือก Model ด้านบนก่อน</div>
+          <button class="btn btn-outline-secondary btn-sm mt-2" onclick="refreshPreview()"><i class="fas fa-sync me-1"></i>Refresh</button>
+        </div>
+        <div class="col-lg-7">
+          <div class="alert alert-info small py-2 mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            ระบบจะรวม Knowledge ทั้งหมดของ Model นี้เข้า SYSTEM prompt แล้วส่งให้ Ollama สร้าง Custom Model
+          </div>
+          <div class="d-flex justify-content-between mb-2 px-1">
+            <span class="text-muted">Knowledge:</span><strong class="text-primary" id="bKCount">-</strong>
+          </div>
+          <button class="btn btn-warning w-100 py-2 fw-bold" id="buildBtn" onclick="buildModel()" disabled>
+            <i class="fas fa-hammer me-2"></i>Build Model Now
+          </button>
+          <div id="buildResultCard" class="mt-3 d-none">
+            <div class="code-wrap" style="min-height:50px"><pre id="buildOut"></pre></div>
+          </div>
+
+          <!-- Build Log -->
+          <div class="mt-4">
+            <div class="fw-semibold text-muted small mb-2"><i class="fas fa-list me-1"></i>Build History</div>
+            <div id="buildLogContainer"><p class="text-muted small">เลือก Model เพื่อดู Build History</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CHAT ══════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabChat">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-comments me-2 text-success"></i>Test Chat</h5>
+        <div class="d-flex gap-2 align-items-center">
+          <select class="form-select form-select-sm" id="chatModelSel" style="width:220px" onchange="onChatModelChange()">
+            <option value="">กำลังโหลด...</option>
+          </select>
+          <button class="btn btn-outline-secondary btn-sm" onclick="loadOllamaModels()" title="Refresh models"><i class="fas fa-sync"></i></button>
+          <button class="btn btn-outline-danger btn-sm" onclick="clearChat()"><i class="fas fa-trash me-1"></i>ล้าง</button>
+        </div>
+      </div>
+
+      <!-- System Prompt Panel -->
+      <div class="sys-panel" id="sysPanel">
+        <div class="sys-panel-head">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="sysToggle" onchange="toggleSys()">
+            <label class="form-check-label fw-semibold small" for="sysToggle">
+              <i class="fas fa-shield-alt me-1 text-warning"></i>System Prompt
+            </label>
+          </div>
+          <span class="badge bg-warning text-dark d-none" id="spBadge">Active</span>
+          <span class="ms-auto sp-dot" id="spDot"></span>
+        </div>
+        <div class="collapse" id="sysCollapse">
+          <div class="sys-panel-body">
+            <textarea class="form-control" id="sysPromptTa" rows="3"
+              placeholder="เช่น: คุณคือผู้เชี่ยวชาญด้านจักษุวิทยา ตอบเป็นภาษาไทยเสมอ"
+              oninput="onSysInput()"></textarea>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <small class="text-muted"><span id="spLen">0</span> ตัวอักษร</small>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="saveSys()"><i class="fas fa-save me-1"></i>บันทึก</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearSys()"><i class="fas fa-times me-1"></i>ล้าง</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-box mb-3" id="chatBox">
+        <div class="empty-state py-4" id="chatPH"><i class="fas fa-robot" style="font-size:2rem"></i><p>เลือก Model แล้วเริ่มถามได้เลย</p></div>
+      </div>
+      <div class="input-group">
+        <input type="text" class="form-control" id="chatIn"
+               placeholder="พิมพ์คำถาม แล้วกด Enter..."
+               onkeypress="if(event.key==='Enter')sendChat()">
+        <button class="btn btn-success px-4" id="sendBtn" onclick="sendChat()">
+          <i class="fas fa-paper-plane me-1"></i>ส่ง
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ HISTORY ══════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabHistory">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-info"></i>Chat History</h5>
+        <div class="d-flex gap-2 align-items-center">
+          <select class="form-select form-select-sm" id="hFilterModel" style="width:190px" onchange="loadHistory()">
+            <option value="">ทุก Model</option>
+          </select>
+          <button class="btn btn-outline-secondary btn-sm" onclick="loadHistory()"><i class="fas fa-sync"></i></button>
+          <button class="btn btn-outline-danger btn-sm" onclick="clearAllHistory()">
+            <i class="fas fa-trash me-1"></i>ล้างทั้งหมด
+          </button>
+        </div>
+      </div>
+      <div id="historyContent">
+        <div class="empty-state"><i class="fas fa-history"></i><p>ยังไม่มีประวัติการสนทนา</p></div>
+      </div>
+    </div>
+
+    <!-- ══ CURL ══════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabCurl">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-terminal me-2"></i>Curl Commands</h5>
+        <small class="text-muted">คลิก Copy แล้ววางใน Terminal ได้เลย</small>
+      </div>
+      <div class="row g-3" id="curlGrid"></div>
+    </div>
+
+    <!-- ══ SETTINGS ══════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabSettings">
+      <div class="row">
+        <div class="col-lg-5">
+          <h5 class="fw-bold mb-4"><i class="fas fa-cog me-2 text-secondary"></i>Settings</h5>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Ollama URL</label>
+            <input type="text" class="form-control" id="cfgUrl" placeholder="http://...">
+            <div class="form-text">URL ของ Ollama API server</div>
+          </div>
+          <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary px-4" onclick="saveSettings()"><i class="fas fa-save me-1"></i>บันทึก</button>
+            <button class="btn btn-outline-secondary" onclick="testConn()"><i class="fas fa-plug me-1"></i>ทดสอบเชื่อมต่อ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ADMIN ════════════════════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="tabAdmin">
+      <!-- Stats -->
+      <div class="row g-3 mb-4" id="adminStatsRow">
+        <div class="col-6 col-md-3">
+          <div class="card p-3" style="border-left:4px solid #6c63ff">
+            <div class="text-muted small">Total Users</div>
+            <div class="fw-bold fs-4 text-primary" id="adStU">-</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card p-3" style="border-left:4px solid #28a745">
+            <div class="text-muted small">Active Users</div>
+            <div class="fw-bold fs-4 text-success" id="adStA">-</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card p-3" style="border-left:4px solid #17a2b8">
+            <div class="text-muted small">Tokens Today</div>
+            <div class="fw-bold fs-4 text-info" id="adStT">-</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card p-3" style="border-left:4px solid #f7b731">
+            <div class="text-muted small">Chats Today</div>
+            <div class="fw-bold fs-4 text-warning" id="adStC">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-users me-2 text-primary"></i>User Management</h5>
+        <button class="btn btn-primary btn-sm px-3" onclick="openUserModal()">
+          <i class="fas fa-plus me-1"></i>Add User
+        </button>
+      </div>
+      <div class="table-responsive mb-4">
+        <table class="table table-hover align-middle mb-0" id="adminUsersTable">
+          <thead>
+            <tr>
+              <th style="width:36px">#</th>
+              <th>Username</th>
+              <th style="width:80px">Role</th>
+              <th style="width:260px">Token Usage</th>
+              <th style="width:80px" class="text-center">Status</th>
+              <th style="width:140px">Last Login</th>
+              <th style="width:120px" class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminUsersTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Logs -->
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0 fw-bold"><i class="fas fa-list me-2 text-info"></i>Usage Logs</h5>
+        <div class="d-flex gap-2">
+          <select class="form-select form-select-sm" id="logFilterUser" style="width:150px" onchange="loadAdminLogs()">
+            <option value="">ทุก User</option>
+          </select>
+          <select class="form-select form-select-sm" id="logFilterAction" style="width:170px" onchange="loadAdminLogs()">
+            <option value="">ทุก Action</option>
+            <option value="login">login</option>
+            <option value="logout">logout</option>
+            <option value="chat">chat</option>
+            <option value="build">build</option>
+            <option value="token_limit_exceeded">token_limit_exceeded</option>
+            <option value="token_reset">token_reset</option>
+            <option value="user_created">user_created</option>
+            <option value="user_deleted">user_deleted</option>
+          </select>
+          <button class="btn btn-outline-secondary btn-sm" onclick="loadAdminLogs()"><i class="fas fa-sync"></i></button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0" style="font-size:.82rem">
+          <thead>
+            <tr>
+              <th style="width:140px">เวลา</th>
+              <th style="width:110px">User</th>
+              <th style="width:130px">Action</th>
+              <th style="width:150px">Model</th>
+              <th style="width:90px" class="text-end">Tokens In</th>
+              <th style="width:90px" class="text-end">Tokens Out</th>
+              <th style="width:90px" class="text-end">Total</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody id="adminLogsTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+</div><!-- /container -->
+
+<!-- ═══ MODAL: Add / Edit Custom Model ═══════════════════════════════════════ -->
+<div class="modal fade" id="modelModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;border:none">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold" id="modelModalTitle"><i class="fas fa-plus-circle me-2 text-primary"></i>New Model</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="mEditId">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">ชื่อ Custom Model <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="mName" placeholder="เช่น: qwen2.5-medical">
+          <div class="form-text">ชื่อนี้จะใช้ใน Ollama — ไม่มีช่องว่าง</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Base Model <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="mBase" placeholder="qwen2.5:3b">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Temperature: <span class="badge bg-warning text-dark" id="mTempVal">0.1</span></label>
+          <input type="range" class="form-range" id="mTemp" min="0" max="1" step="0.05"
+                 oninput="document.getElementById('mTempVal').textContent=this.value">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">คำอธิบาย (ไม่บังคับ)</label>
+          <input type="text" class="form-control" id="mDesc" placeholder="เช่น: โมเดลสำหรับความรู้ทางการแพทย์">
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-primary px-4" onclick="saveModel()"><i class="fas fa-save me-1"></i>บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Add / Edit Knowledge ══════════════════════════════════════════ -->
+<div class="modal fade" id="kModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;border:none">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold" id="kModalTitle"><i class="fas fa-plus-circle me-2 text-success"></i>เพิ่ม Knowledge</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="kEditId">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">หัวข้อ <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="kTitle" placeholder="เช่น: ต้อกระจก (Cataract)">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">เนื้อหาความรู้ <span class="text-danger">*</span></label>
+          <textarea class="form-control" id="kContent" rows="6"
+            placeholder="เช่น: ต้อกระจกคือภาวะเลนส์ตาขุ่นมัว รักษาด้วยการผ่าตัดเปลี่ยนเลนส์เทียม"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-success px-4" onclick="saveKnowledge()"><i class="fas fa-save me-1"></i>บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Add / Edit User ═══════════════════════════════════════════════ -->
+<div class="modal fade" id="userModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;border:none">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold" id="userModalTitle"><i class="fas fa-user-plus me-2 text-primary"></i>Add User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="uEditId">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="uUsername" placeholder="username">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Password <span class="text-danger" id="uPwdRequired">*</span></label>
+          <input type="password" class="form-control" id="uPassword" placeholder="password (ปล่อยว่างถ้าไม่เปลี่ยน)">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Role</label>
+          <select class="form-select" id="uRole">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            Token Limit: <span id="uLimitDisp" class="badge bg-primary">100,000</span>
+            <small class="text-muted ms-1">(0 = ไม่จำกัด)</small>
+          </label>
+          <input type="number" class="form-control" id="uTokenLimit" min="0" step="10000" value="100000"
+                 oninput="document.getElementById('uLimitDisp').textContent = (+this.value||0)===0 ? '∞ ไม่จำกัด' : (+this.value).toLocaleString()">
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="uActive" checked>
+          <label class="form-check-label" for="uActive">Active (เปิดใช้งาน)</label>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button class="btn btn-primary px-4" onclick="saveUser()"><i class="fas fa-save me-1"></i>บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: View Session Messages ═════════════════════════════════════════ -->
+<div class="modal fade" id="sessionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius:14px;border:none">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold" id="sessionModalTitle"><i class="fas fa-comments me-2 text-info"></i>Session</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="sessionModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOADING OVERLAY ══════════════════════════════════════════════════════ -->
+<div class="overlay" id="overlay">
+  <div class="text-center text-white">
+    <div class="spinner-border mb-3" style="width:3rem;height:3rem"></div>
+    <div id="overlayText" class="fw-semibold fs-5">กำลังประมวลผล...</div>
+  </div>
+</div>
+
+<!-- ═══ SCRIPTS ══════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let customModels = [];
+let cachedOllamaModels = [];  // cache ไว้ไม่ต้อง fetch ทุกครั้ง
+let activeKModelId = null;    // selected in Knowledge tab
+let activeBModelId = null;    // selected in Build tab
+let knowledgeList  = [];
+let chatHistory    = [];
+let currentSessionId = null;
+let sysEnabled = false;
+let sysText    = '';
+let config     = {};
+let curlCmds   = [];
+
+// Bootstrap instances
+const modelModal   = new bootstrap.Modal(document.getElementById('modelModal'));
+const kModal       = new bootstrap.Modal(document.getElementById('kModal'));
+const sessionModal = new bootstrap.Modal(document.getElementById('sessionModal'));
+const sysCollapse  = new bootstrap.Collapse(document.getElementById('sysCollapse'), { toggle: false });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  await loadConfig();
+  await loadStats();
+  await loadCustomModels();
+  await loadOllamaModels();
+  initSys();
+  checkStatus();
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    config = await r.json();
+    document.getElementById('cfgUrl').value = config.ollama_url || '';
+  } catch (e) { console.error(e); }
+}
+
+async function saveSettings() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  if (!url) return Swal.fire('ข้อผิดพลาด', 'กรุณากรอก URL', 'error');
+  try {
+    await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ollama_url: url }) });
+    config.ollama_url = url;
+    Swal.fire({ icon: 'success', title: 'บันทึกแล้ว', timer: 1400, showConfirmButton: false });
+  } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+async function testConn() {
+  showOv('กำลังทดสอบการเชื่อมต่อ...');
+  try {
+    const r = await fetch('/api/ollama-models');
+    const d = await r.json();
+    hideOv();
+    if (r.ok) {
+      const list = (d.models || []).map(m => `<code>${esc(m.name)}</code>`).join(' · ') || 'ไม่มีโมเดล';
+      Swal.fire({ icon: 'success', title: 'เชื่อมต่อสำเร็จ', html: `พบ: ${list}` });
+      setStatus(true);
+    } else {
+      Swal.fire('ล้มเหลว', d.error || 'error', 'error'); setStatus(false);
+    }
+  } catch (e) { hideOv(); Swal.fire('ล้มเหลว', e.message, 'error'); setStatus(false); }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const d = await (await fetch('/api/stats')).json();
+    document.getElementById('stM').textContent   = d.models;
+    document.getElementById('stK').textContent   = d.knowledge;
+    document.getElementById('stS').textContent   = d.sessions;
+    document.getElementById('stMsg').textContent = d.messages;
+  } catch (e) {}
+}
+
+// ── Custom Models ─────────────────────────────────────────────────────────────
+async function loadCustomModels() {
+  try {
+    const r = await fetch('/api/custom-models');
+    customModels = await r.json();
+    renderModels();
+    populateModelSelects();
+    loadStats();
+  } catch (e) { console.error('loadCustomModels error:', e); }
+  refreshChatSelect(); // ย้ายออกนอก try/catch — รันเสมอไม่ว่าจะ error ที่ไหน
+}
+
+function renderModels() {
+  const grid = document.getElementById('modelsGrid');
+  if (!customModels.length) {
+    grid.innerHTML = `
+      <div class="col-12 empty-state">
+        <i class="fas fa-robot"></i>
+        <p>ยังไม่มี Custom Model<br>กดปุ่ม <strong>New Model</strong> เพื่อเริ่มต้น</p>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = customModels.map(m => `
+    <div class="col-sm-6 col-xl-4">
+      <div class="card model-card h-100">
+        <div class="mc-accent"></div>
+        <div class="card-body pb-2">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <h6 class="fw-bold mb-0 text-primary">${esc(m.name)}</h6>
+            ${m.built_at
+              ? `<span class="badge bg-success built-badge"><i class="fas fa-check me-1"></i>Built</span>`
+              : `<span class="badge bg-secondary built-badge">Not built</span>`}
+          </div>
+          ${m.description ? `<p class="text-muted small mb-2">${esc(m.description)}</p>` : ''}
+          <div class="d-flex gap-3 text-muted small mb-2">
+            <span><i class="fas fa-layer-group me-1"></i>${esc(m.base_model)}</span>
+            <span><i class="fas fa-thermometer-half me-1"></i>${m.temperature}</span>
+          </div>
+          <div class="d-flex gap-2 text-muted small mb-3">
+            <span><i class="fas fa-book me-1 text-success"></i><strong class="text-success">${m.knowledge_count}</strong> knowledge</span>
+            ${m.built_at ? `<span class="ms-auto"><i class="fas fa-clock me-1"></i>${fmtDate(m.built_at)}</span>` : ''}
+          </div>
+          <div class="d-flex gap-1 flex-wrap">
+            <button class="btn btn-sm btn-outline-success" onclick="goKnowledge(${m.id})">
+              <i class="fas fa-book me-1"></i>Knowledge
+            </button>
+            <button class="btn btn-sm btn-warning" onclick="goBuild(${m.id})">
+              <i class="fas fa-hammer me-1"></i>Build
+            </button>
+            <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="openModelModal(${m.id})" title="แก้ไข">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteModel(${m.id})" title="ลบ">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function populateModelSelects() {
+  const opts = '<option value="">— เลือก Model —</option>' +
+    customModels.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  document.getElementById('kModelSel').innerHTML = opts;
+  document.getElementById('bModelSel').innerHTML = opts;
+
+  // History filter — use names
+  const hOpts = '<option value="">ทุก Model</option>' +
+    customModels.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
+  document.getElementById('hFilterModel').innerHTML = hOpts;
+
+  // Restore selections
+  if (activeKModelId) document.getElementById('kModelSel').value = activeKModelId;
+  if (activeBModelId) document.getElementById('bModelSel').value = activeBModelId;
+}
+
+function openModelModal(id) {
+  document.getElementById('mEditId').value = id || '';
+  if (id) {
+    const m = customModels.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('modelModalTitle').innerHTML = '<i class="fas fa-edit me-2 text-warning"></i>แก้ไข Model';
+    document.getElementById('mName').value    = m.name;
+    document.getElementById('mBase').value    = m.base_model;
+    document.getElementById('mTemp').value    = m.temperature;
+    document.getElementById('mTempVal').textContent = m.temperature;
+    document.getElementById('mDesc').value    = m.description || '';
+  } else {
+    document.getElementById('modelModalTitle').innerHTML = '<i class="fas fa-plus-circle me-2 text-primary"></i>New Model';
+    document.getElementById('mName').value    = '';
+    document.getElementById('mBase').value    = 'qwen2.5:3b';
+    document.getElementById('mTemp').value    = 0.1;
+    document.getElementById('mTempVal').textContent = '0.1';
+    document.getElementById('mDesc').value    = '';
+  }
+  modelModal.show();
+}
+
+async function saveModel() {
+  const id   = document.getElementById('mEditId').value;
+  const body = {
+    name:        document.getElementById('mName').value.trim(),
+    base_model:  document.getElementById('mBase').value.trim(),
+    temperature: parseFloat(document.getElementById('mTemp').value),
+    description: document.getElementById('mDesc').value.trim()
+  };
+  if (!body.name || !body.base_model) return Swal.fire('ข้อผิดพลาด', 'กรุณากรอก name และ base_model', 'error');
+
+  try {
+    const r = await fetch(id ? `/api/custom-models/${id}` : '/api/custom-models', {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok) return Swal.fire('ข้อผิดพลาด', d.error, 'error');
+    modelModal.hide();
+    await loadCustomModels();
+    refreshChatSelect();
+    Swal.fire({ icon: 'success', title: id ? 'แก้ไขแล้ว' : 'สร้างแล้ว', timer: 1400, showConfirmButton: false });
+  } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+async function deleteModel(id) {
+  const m = customModels.find(x => x.id === id);
+  const res = await Swal.fire({
+    title: 'ลบ Model?',
+    html: `ลบ <strong>${esc(m?.name)}</strong> และ Knowledge ทั้งหมดของ model นี้ออก?<br><small class="text-muted">(ข้อมูลใน Ollama ยังอยู่ ต้องลบเองผ่าน CLI)</small>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonColor: '#d33', confirmButtonText: 'ลบเลย', cancelButtonText: 'ยกเลิก'
+  });
+  if (!res.isConfirmed) return;
+  await fetch(`/api/custom-models/${id}`, { method: 'DELETE' });
+  if (activeKModelId == id) { activeKModelId = null; renderKnowledgeEmpty(); }
+  if (activeBModelId == id) { activeBModelId = null; }
+  await loadCustomModels();
+  refreshChatSelect();
+  Swal.fire({ icon: 'success', title: 'ลบแล้ว', timer: 1000, showConfirmButton: false });
+}
+
+// ── Knowledge Tab ─────────────────────────────────────────────────────────────
+function goKnowledge(modelId) {
+  activeKModelId = modelId;
+  document.querySelector('[data-bs-target="#tabKnowledge"]').click();
+  document.getElementById('kModelSel').value = modelId;
+  loadKnowledge(modelId);
+}
+
+async function onKModelChange() {
+  const id = parseInt(document.getElementById('kModelSel').value);
+  activeKModelId = id || null;
+  document.getElementById('addKBtn').disabled = !id;
+  if (id) await loadKnowledge(id);
+  else renderKnowledgeEmpty();
+}
+
+async function loadKnowledge(modelId) {
+  try {
+    const r = await fetch(`/api/custom-models/${modelId}/knowledge`);
+    knowledgeList = await r.json();
+    renderKTable(modelId);
+    loadStats();
+  } catch (e) { console.error(e); }
+}
+
+function renderKnowledgeEmpty() {
+  document.getElementById('kListWrap').innerHTML =
+    '<div class="empty-state"><i class="fas fa-arrow-up"></i><p>เลือก Model ด้านบนก่อน</p></div>';
+}
+
+function renderKTable(modelId) {
+  const el = document.getElementById('kListWrap');
+  if (!knowledgeList.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <p>ยังไม่มี Knowledge สำหรับ model นี้</p>
+        <button class="btn btn-success" onclick="openKModal()"><i class="fas fa-plus me-1"></i>เพิ่ม Knowledge</button>
+      </div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th style="width:220px">หัวข้อ</th>
+            <th>เนื้อหา</th>
+            <th style="width:130px">วันที่</th>
+            <th style="width:110px" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${knowledgeList.map((k, i) => `
+            <tr>
+              <td class="text-muted small">${i + 1}</td>
+              <td><span class="badge-topic">${esc(k.title)}</span></td>
+              <td class="text-muted small">${esc(k.content.slice(0, 130))}${k.content.length > 130 ? '…' : ''}</td>
+              <td class="text-muted small">${fmtDate(k.created_at)}</td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="openKModal(${k.id})"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteKnowledge(${k.id})"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openKModal(id) {
+  document.getElementById('kEditId').value = id || '';
+  if (id) {
+    const k = knowledgeList.find(x => x.id === id);
+    if (!k) return;
+    document.getElementById('kModalTitle').innerHTML = '<i class="fas fa-edit me-2 text-warning"></i>แก้ไข Knowledge';
+    document.getElementById('kTitle').value   = k.title;
+    document.getElementById('kContent').value = k.content;
+  } else {
+    document.getElementById('kModalTitle').innerHTML = '<i class="fas fa-plus-circle me-2 text-success"></i>เพิ่ม Knowledge';
+    document.getElementById('kTitle').value   = '';
+    document.getElementById('kContent').value = '';
+  }
+  kModal.show();
+}
+
+async function saveKnowledge() {
+  const id      = document.getElementById('kEditId').value;
+  const title   = document.getElementById('kTitle').value.trim();
+  const content = document.getElementById('kContent').value.trim();
+  if (!title || !content) return Swal.fire('ข้อผิดพลาด', 'กรุณากรอก title และ content', 'error');
+  if (!activeKModelId) return Swal.fire('ข้อผิดพลาด', 'กรุณาเลือก Model ก่อน', 'error');
+
+  try {
+    const url    = id ? `/api/custom-models/${activeKModelId}/knowledge/${id}` : `/api/custom-models/${activeKModelId}/knowledge`;
+    const method = id ? 'PUT' : 'POST';
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content }) });
+    const d = await r.json();
+    if (!r.ok) return Swal.fire('ข้อผิดพลาด', d.error, 'error');
+    kModal.hide();
+    await loadKnowledge(activeKModelId);
+    Swal.fire({ icon: 'success', title: id ? 'แก้ไขแล้ว' : 'เพิ่มแล้ว', timer: 1300, showConfirmButton: false });
+  } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+async function deleteKnowledge(id) {
+  const k = knowledgeList.find(x => x.id === id);
+  const res = await Swal.fire({
+    title: 'ลบ Knowledge?', html: `<strong>${esc(k?.title)}</strong>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonColor: '#d33', confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก'
+  });
+  if (!res.isConfirmed) return;
+  await fetch(`/api/custom-models/${activeKModelId}/knowledge/${id}`, { method: 'DELETE' });
+  await loadKnowledge(activeKModelId);
+  Swal.fire({ icon: 'success', title: 'ลบแล้ว', timer: 1000, showConfirmButton: false });
+}
+
+// ── Build Tab ─────────────────────────────────────────────────────────────────
+function goBuild(modelId) {
+  activeBModelId = modelId;
+  document.querySelector('[data-bs-target="#tabBuild"]').click();
+  document.getElementById('bModelSel').value = modelId;
+  onBModelChange();
+}
+
+async function onBModelChange() {
+  const id = parseInt(document.getElementById('bModelSel').value);
+  activeBModelId = id || null;
+  document.getElementById('buildBtn').disabled = !id;
+  if (id) { await refreshPreview(); await loadBuildLog(id); }
+  else { document.getElementById('mfBox').textContent = '// เลือก Model ด้านบนก่อน'; }
+}
+
+async function refreshPreview() {
+  if (!activeBModelId) return;
+  try {
+    const r = await fetch(`/api/custom-models/${activeBModelId}/preview`);
+    const d = await r.json();
+    document.getElementById('mfBox').textContent = d.modelfile || '// ยังไม่มี Knowledge';
+    document.getElementById('bKCount').textContent = d.knowledge_count + ' รายการ';
+  } catch (e) { console.error(e); }
+}
+
+async function loadBuildLog(modelId) {
+  try {
+    const r = await fetch(`/api/build-log?model_id=${modelId}`);
+    const logs = await r.json();
+    const el = document.getElementById('buildLogContainer');
+    if (!logs.length) { el.innerHTML = '<p class="text-muted small">ยังไม่มี Build History</p>'; return; }
+    el.innerHTML = `
+      <table class="table table-sm table-hover mb-0" style="font-size:.8rem">
+        <thead><tr><th>วันที่ Build</th><th>Status</th><th>Knowledge</th><th>Error</th></tr></thead>
+        <tbody>
+          ${logs.map(l => `
+            <tr>
+              <td class="text-muted">${l.built_at}</td>
+              <td>${l.status === 'success'
+                ? '<span class="badge bg-success">success</span>'
+                : '<span class="badge bg-danger">error</span>'}</td>
+              <td>${l.knowledge_cnt}</td>
+              <td class="text-danger small">${l.error_msg ? esc(l.error_msg.slice(0, 60)) : '-'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {}
+}
+
+async function buildModel() {
+  if (!activeBModelId) return;
+  const m = customModels.find(x => x.id === activeBModelId);
+  const conf = await Swal.fire({
+    title: 'Build Model?',
+    html: `สร้าง/อัปเดต <strong>${esc(m?.name)}</strong><br>ใน Ollama`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: '<i class="fas fa-hammer me-1"></i>Build!', cancelButtonText: 'ยกเลิก'
+  });
+  if (!conf.isConfirmed) return;
+
+  showOv('กำลัง Build Model... (อาจใช้เวลา 1-2 นาที)');
+  const card = document.getElementById('buildResultCard');
+  const out  = document.getElementById('buildOut');
+  card.classList.remove('d-none');
+  out.textContent = 'กำลัง Build...';
+
+  try {
+    const r = await fetch(`/api/custom-models/${activeBModelId}/build`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const d = await r.json();
+    hideOv();
+    if (r.ok) {
+      out.textContent = '✅ ' + d.message;
+      await loadCustomModels();
+      await loadOllamaModels();
+      await loadBuildLog(activeBModelId);
+      Swal.fire({ icon: 'success', title: 'Build สำเร็จ!', text: d.message });
+    } else {
+      out.textContent = '❌ ' + d.error;
+      await loadBuildLog(activeBModelId);
+      Swal.fire('Build ล้มเหลว', d.error, 'error');
+    }
+  } catch (e) {
+    hideOv();
+    out.textContent = '❌ ' + e.message;
+    Swal.fire('Error', e.message, 'error');
+  }
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+async function loadOllamaModels() {
+  try {
+    const r = await fetch('/api/ollama-models');
+    if (r.ok) cachedOllamaModels = (await r.json()).models || [];
+    setStatus(r.ok);
+  } catch (e) {
+    setStatus(false);
+  }
+  refreshChatSelect();
+}
+
+function refreshChatSelect() {
+  const sel = document.getElementById('chatModelSel');
+  if (!sel) return; // guard: element ยังไม่ mount
+
+  const safeCustom = customModels || [];
+  const safeOllama = cachedOllamaModels || [];
+  const builtNames = new Set(safeOllama.map(m => m.name));
+  let html = '';
+
+  if (safeCustom.length) {
+    html += '<optgroup label="🤖 Custom Models">';
+    safeCustom.forEach(m => {
+      const built = builtNames.has(m.name);
+      html += `<option value="${esc(m.name)}">${esc(m.name)}${built ? '' : ' ⚠ (ยังไม่ได้ Build)'}</option>`;
+    });
+    html += '</optgroup>';
+  }
+
+  const others = safeOllama.filter(m => !safeCustom.some(c => c.name === m.name));
+  if (others.length) {
+    html += '<optgroup label="📦 Ollama Models">';
+    others.forEach(m => { html += `<option value="${esc(m.name)}">${esc(m.name)}</option>`; });
+    html += '</optgroup>';
+  }
+
+  sel.innerHTML = html || '<option value="">ไม่พบโมเดล</option>';
+}
+
+async function onChatModelChange() {
+  // If we had a previous session, end it
+  if (currentSessionId) {
+    await fetch(`/api/sessions/${currentSessionId}/end`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+    currentSessionId = null;
+  }
+  clearChat(false);  // clear UI but don't create session yet
+}
+
+async function startSession() {
+  const model = document.getElementById('chatModelSel').value;
+  if (!model || currentSessionId) return;
+  // Find matching custom model
+  const cm = customModels.find(m => model.startsWith(m.name));
+  try {
+    const r = await fetch('/api/sessions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: cm?.id || null, model_name: model, base_model: cm?.base_model || '' })
+    });
+    const d = await r.json();
+    currentSessionId = d.id;
+  } catch (e) { console.error(e); }
+}
+
+function clearChat(createNew = true) {
+  if (currentSessionId) {
+    fetch(`/api/sessions/${currentSessionId}/end`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+    currentSessionId = null;
+  }
+  chatHistory = [];
+  document.getElementById('chatBox').innerHTML =
+    `<div class="empty-state py-4" id="chatPH"><i class="fas fa-robot" style="font-size:2rem"></i><p>เลือก Model แล้วเริ่มถามได้เลย</p></div>`;
+  loadStats();
+}
+
+async function sendChat() {
+  const inp   = document.getElementById('chatIn');
+  const model = document.getElementById('chatModelSel').value;
+  const text  = inp.value.trim();
+  if (!text)  return;
+  if (!model) return Swal.fire('ข้อผิดพลาด', 'กรุณาเลือก Model ก่อน', 'warning');
+
+  // Start session on first message
+  if (!currentSessionId) await startSession();
+
+  const box = document.getElementById('chatBox');
+  document.getElementById('chatPH')?.remove();
+
+  chatHistory.push({ role: 'user', content: text });
+  box.innerHTML += `<div class="d-flex justify-content-end mb-1"><div class="bubble user">${esc(text)}</div></div>`;
+  inp.value = '';
+
+  const tid = 'ty_' + Date.now();
+  box.innerHTML += `<div id="${tid}" class="d-flex mb-1"><div class="bubble bot"><i class="fas fa-circle-notch fa-spin me-2 text-muted"></i>กำลังคิด...</div></div>`;
+  box.scrollTop = box.scrollHeight;
+  document.getElementById('sendBtn').disabled = true;
+
+  const toSend = [];
+  if (sysEnabled && sysText.trim()) toSend.push({ role: 'system', content: sysText.trim() });
+  toSend.push(...chatHistory);
+
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: toSend, model, session_id: currentSessionId })
+    });
+    const d = await r.json();
+    document.getElementById(tid)?.remove();
+
+    if (r.ok && d.message?.content) {
+      const reply = d.message.content;
+      chatHistory.push({ role: 'assistant', content: reply });
+      box.innerHTML += `<div class="d-flex mb-1"><div class="bubble bot">${esc(reply)}</div></div>`;
+      if (d.eval_duration) {
+        const s = (d.eval_duration / 1e9).toFixed(2);
+        const turns = chatHistory.filter(m => m.role === 'user').length;
+        box.innerHTML += `<div class="chat-meta ms-2"><i class="fas fa-clock me-1"></i>${s}s · turn ${turns}</div>`;
+      }
+      loadStats();
+    } else {
+      chatHistory.pop();
+      box.innerHTML += `<div class="d-flex mb-1"><div class="bubble err"><i class="fas fa-exclamation-circle me-1"></i>${esc(d.error || 'ไม่ได้รับคำตอบ')}</div></div>`;
+    }
+  } catch (e) {
+    chatHistory.pop();
+    document.getElementById(tid)?.remove();
+    box.innerHTML += `<div class="d-flex mb-1"><div class="bubble err"><i class="fas fa-exclamation-circle me-1"></i>${esc(e.message)}</div></div>`;
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── System Prompt ─────────────────────────────────────────────────────────────
+function initSys() {
+  sysText    = localStorage.getItem('sp_text')    || '';
+  sysEnabled = localStorage.getItem('sp_enabled') === 'true';
+  document.getElementById('sysPromptTa').value = sysText;
+  document.getElementById('spLen').textContent  = sysText.length;
+  if (sysEnabled) {
+    document.getElementById('sysToggle').checked = true;
+    document.getElementById('sysPanel').classList.add('sp-on');
+    document.getElementById('spBadge').classList.remove('d-none');
+    sysCollapse.show();
+  }
+}
+
+function toggleSys() {
+  sysEnabled = document.getElementById('sysToggle').checked;
+  localStorage.setItem('sp_enabled', sysEnabled);
+  const panel = document.getElementById('sysPanel');
+  const badge = document.getElementById('spBadge');
+  if (sysEnabled) { panel.classList.add('sp-on'); badge.classList.remove('d-none'); sysCollapse.show(); }
+  else            { panel.classList.remove('sp-on'); badge.classList.add('d-none'); sysCollapse.hide(); }
+}
+
+function onSysInput() {
+  document.getElementById('spLen').textContent = document.getElementById('sysPromptTa').value.length;
+  clearTimeout(window._spTimer);
+  window._spTimer = setTimeout(saveSys, 800);
+}
+
+function saveSys() {
+  sysText = document.getElementById('sysPromptTa').value;
+  localStorage.setItem('sp_text', sysText);
+  const dot = document.getElementById('spDot');
+  dot.classList.add('show');
+  setTimeout(() => dot.classList.remove('show'), 1500);
+}
+
+function clearSys() {
+  Swal.fire({ title: 'ล้าง System Prompt?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ล้าง', cancelButtonText: 'ยกเลิก' })
+    .then(r => {
+      if (!r.isConfirmed) return;
+      sysText = '';
+      document.getElementById('sysPromptTa').value = '';
+      document.getElementById('spLen').textContent = '0';
+      localStorage.removeItem('sp_text');
+      Swal.fire({ icon: 'success', title: 'ล้างแล้ว', timer: 1000, showConfirmButton: false });
+    });
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const model = document.getElementById('hFilterModel').value;
+  const url   = '/api/history' + (model ? `?model_name=${encodeURIComponent(model)}` : '');
+  try {
+    const r = await fetch(url);
+    const sessions = await r.json();
+    renderHistory(sessions);
+  } catch (e) { console.error(e); }
+}
+
+function renderHistory(sessions) {
+  const el = document.getElementById('historyContent');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i><p>ยังไม่มีประวัติการสนทนา</p></div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th>Model</th>
+            <th>Base Model</th>
+            <th>ข้อความแรก</th>
+            <th style="width:70px" class="text-center">Msgs</th>
+            <th style="width:150px">เริ่มต้น</th>
+            <th style="width:150px">สิ้นสุด</th>
+            <th style="width:90px" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sessions.map((s, i) => `
+            <tr class="session-row" onclick="viewSession(${s.id}, '${esc(s.model_name)}')">
+              <td class="text-muted small">${i + 1}</td>
+              <td><span class="badge bg-primary bg-opacity-10 text-primary">${esc(s.model_name || '-')}</span></td>
+              <td class="text-muted small">${esc(s.base_model || '-')}</td>
+              <td class="text-muted small">${esc((s.first_message || '-').slice(0, 80))}${(s.first_message || '').length > 80 ? '…' : ''}</td>
+              <td class="text-center fw-bold text-info">${s.msg_count}</td>
+              <td class="text-muted small">${s.started_at || '-'}</td>
+              <td class="text-muted small">${s.ended_at || '<span class="text-warning">Active</span>'}</td>
+              <td class="text-center" onclick="event.stopPropagation()">
+                <button class="btn btn-sm btn-outline-info me-1" onclick="viewSession(${s.id}, '${esc(s.model_name)}')" title="ดูการสนทนา">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteSession(${s.id})" title="ลบ">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function viewSession(sid, modelName) {
+  try {
+    const msgs = await (await fetch(`/api/history/${sid}/messages`)).json();
+    const body = document.getElementById('sessionModalBody');
+    document.getElementById('sessionModalTitle').innerHTML =
+      `<i class="fas fa-comments me-2 text-info"></i>Session — <span class="text-primary">${esc(modelName)}</span>`;
+
+    if (!msgs.length) { body.innerHTML = '<p class="text-muted text-center py-4">ไม่มีข้อความ</p>'; }
+    else {
+      body.innerHTML = msgs.map(m => `
+        <div class="history-msg ${m.role}" style="margin-left:${m.role==='user'?'20%':'0'};margin-right:${m.role==='assistant'?'20%':'0'}">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <strong class="small ${m.role === 'user' ? 'text-primary' : 'text-secondary'}">
+              ${m.role === 'user' ? '👤 User' : '🤖 Assistant'}
+            </strong>
+            <small class="text-muted">${m.created_at}${m.eval_ms ? ` · ${(m.eval_ms/1000).toFixed(1)}s` : ''}</small>
+          </div>
+          <div style="white-space:pre-wrap">${esc(m.content)}</div>
+        </div>`).join('');
+    }
+    sessionModal.show();
+  } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+async function deleteSession(sid) {
+  const res = await Swal.fire({
+    title: 'ลบ Session?', icon: 'warning', showCancelButton: true,
+    confirmButtonColor: '#d33', confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก'
+  });
+  if (!res.isConfirmed) return;
+  await fetch(`/api/history/${sid}`, { method: 'DELETE' });
+  await loadHistory();
+  await loadStats();
+  Swal.fire({ icon: 'success', title: 'ลบแล้ว', timer: 1000, showConfirmButton: false });
+}
+
+async function clearAllHistory() {
+  const model = document.getElementById('hFilterModel').value;
+  const res = await Swal.fire({
+    title: model ? `ล้าง History ของ ${model}?` : 'ล้าง History ทั้งหมด?',
+    icon: 'warning', showCancelButton: true,
+    confirmButtonColor: '#d33', confirmButtonText: 'ล้างเลย', cancelButtonText: 'ยกเลิก'
+  });
+  if (!res.isConfirmed) return;
+  await fetch(`/api/history${model ? '?model_name=' + encodeURIComponent(model) : ''}`, { method: 'DELETE' });
+  await loadHistory();
+  await loadStats();
+  Swal.fire({ icon: 'success', title: 'ล้างแล้ว', timer: 1000, showConfirmButton: false });
+}
+
+// ── Curl Commands ─────────────────────────────────────────────────────────────
+function renderCurl() {
+  const url = config.ollama_url || 'http://OLLAMA_URL';
+  const customNames = customModels.map(m => m.name);
+  const model = customNames[0] || 'qwen2.5-expert';
+  const base  = customModels[0]?.base_model || 'qwen2.5:3b';
+  const temp  = customModels[0]?.temperature ?? 0.1;
+
+  curlCmds = [
+    { title: 'ดูรายการ Model ทั้งหมด',        icon: 'fas fa-list',         color: 'primary',
+      cmd: `curl ${url}/api/tags` },
+    { title: 'Generate (ถาม-ตอบ)',             icon: 'fas fa-comment-dots', color: 'success',
+      cmd: `curl ${url}/api/generate \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model}","prompt":"พิมพ์คำถามที่นี่","stream":false}'` },
+    { title: 'Chat API (Multi-turn)',           icon: 'fas fa-comments',     color: 'primary',
+      cmd: `curl ${url}/api/chat \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model}","messages":[{"role":"user","content":"สวัสดี"}],"stream":false}'` },
+    { title: 'Build / Create Custom Model',    icon: 'fas fa-hammer',       color: 'warning',
+      cmd: `curl ${url}/api/create \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"${model}","modelfile":"FROM ${base}\\nPARAMETER temperature ${temp}\\nSYSTEM \\"domain knowledge here\\"","stream":false}'` },
+    { title: 'Pull / ดาวน์โหลด Model',         icon: 'fas fa-download',     color: 'secondary',
+      cmd: `curl ${url}/api/pull \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"${base}","stream":false}'` },
+    { title: 'Show รายละเอียด Model',          icon: 'fas fa-info-circle',  color: 'info',
+      cmd: `curl ${url}/api/show \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"${model}"}'` },
+    { title: 'ลบ Model',                       icon: 'fas fa-trash',        color: 'danger',
+      cmd: `curl -X DELETE ${url}/api/delete \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"${model}"}'` },
+    { title: 'Generate แบบ Streaming',         icon: 'fas fa-stream',       color: 'dark',
+      cmd: `curl ${url}/api/generate \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model}","prompt":"พิมพ์คำถามที่นี่","stream":true}'` },
+  ];
+
+  document.getElementById('curlGrid').innerHTML = curlCmds.map((c, i) => `
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header py-2 bg-white d-flex align-items-center gap-2">
+          <span class="badge bg-${c.color}"><i class="${c.icon}"></i></span>
+          <strong class="small">${c.title}</strong>
+        </div>
+        <div class="card-body p-0">
+          <div class="code-wrap" style="border-radius:0 0 14px 14px">
+            <button class="copy-btn" id="cpb${i}" onclick="copyCurl(${i})">
+              <i class="fas fa-copy me-1"></i>Copy
+            </button>
+            <pre>${esc(c.cmd)}</pre>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function copyCurl(i) {
+  navigator.clipboard.writeText(curlCmds[i].cmd).then(() => {
+    const btn = document.getElementById('cpb' + i);
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('ok'); }, 2200);
+  });
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+async function checkStatus() {
+  setStatus('checking');
+  try {
+    const r = await fetch('/api/ollama-models');
+    setStatus(r.ok);
+  } catch (e) { setStatus(false); }
+  setTimeout(checkStatus, 30000);
+}
+
+function setStatus(s) {
+  const dot = document.getElementById('sDot');
+  const txt = document.getElementById('sText');
+  if (s === 'checking') { dot.className = 'status-dot checking'; txt.textContent = 'กำลังตรวจสอบ...'; }
+  else if (s)           { dot.className = 'status-dot online';   txt.textContent = 'Ollama Online'; }
+  else                  { dot.className = 'status-dot offline';  txt.textContent = 'Ollama Offline'; }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(s) {
+  if (!s) return '-';
+  try { return new Date(s).toLocaleString('th-TH', { dateStyle:'short', timeStyle:'short' }); }
+  catch (e) { return s; }
+}
+function showOv(t) { document.getElementById('overlayText').textContent = t || 'กำลังประมวลผล...'; document.getElementById('overlay').classList.add('show'); }
+function hideOv()  { document.getElementById('overlay').classList.remove('show'); }
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let currentUser = null;
+
+// Override fetch to inject auth token on all /api/ calls
+const _fetch = window.fetch.bind(window);
+window.fetch = async (url, opts = {}) => {
+  if (typeof url === 'string' && url.startsWith('/api/') && !url.includes('/api/auth/login')) {
+    const token = localStorage.getItem('auth_token');
+    if (token) opts = { ...opts, headers: { 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) } };
+  }
+  const r = await _fetch(url, opts);
+  if (r.status === 401 && typeof url === 'string' && !url.includes('/api/auth/')) {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    window.location.href = '/login.html';
+    throw new Error('Session expired');
+  }
+  return r;
+};
+
+async function checkAuth() {
+  const token = localStorage.getItem('auth_token');
+  if (!token) { window.location.href = '/login.html'; return false; }
+  try {
+    const r = await _fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!r.ok) { window.location.href = '/login.html'; return false; }
+    currentUser = await r.json();
+    // Show user info in navbar
+    document.getElementById('navUsername').textContent = currentUser.username;
+    const roleBadge = document.getElementById('navRoleBadge');
+    roleBadge.textContent = currentUser.role;
+    roleBadge.className = `badge ms-1 ${currentUser.role === 'admin' ? 'bg-warning text-dark' : 'bg-light text-dark'}`;
+    document.getElementById('navUser').classList.remove('d-none');
+    document.getElementById('navUser').classList.add('d-flex');
+    document.getElementById('logoutBtn').classList.remove('d-none');
+    // Show token info for non-unlimited users
+    if (currentUser.token_limit > 0) {
+      const pct = Math.round(currentUser.token_used / currentUser.token_limit * 100);
+      document.getElementById('navTokenInfo').textContent =
+        `Tokens: ${currentUser.token_used.toLocaleString()} / ${currentUser.token_limit.toLocaleString()} (${pct}%)`;
+      document.getElementById('navTokenInfo').classList.remove('d-none');
+    }
+    // Show admin tab
+    if (currentUser.role === 'admin') {
+      document.getElementById('adminTabItem').classList.remove('d-none');
+    }
+    return true;
+  } catch (e) { window.location.href = '/login.html'; return false; }
+}
+
+async function logout() {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  window.location.href = '/login.html';
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+let adminUsers = [];
+const userModal = new bootstrap.Modal(document.getElementById('userModal'));
+
+async function loadAdminData() {
+  await Promise.all([loadAdminDashboard(), loadAdminUsers(), loadAdminLogs()]);
+}
+
+async function loadAdminDashboard() {
+  try {
+    const d = await (await fetch('/api/admin/dashboard')).json();
+    document.getElementById('adStU').textContent = d.total_users;
+    document.getElementById('adStA').textContent = d.active_users;
+    document.getElementById('adStT').textContent = (d.tokens_today || 0).toLocaleString();
+    document.getElementById('adStC').textContent = d.chats_today;
+  } catch (e) {}
+}
+
+async function loadAdminUsers() {
+  try {
+    adminUsers = await (await fetch('/api/admin/users')).json();
+    renderAdminUsers();
+    // populate log filter
+    const sel = document.getElementById('logFilterUser');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">ทุก User</option>' +
+      adminUsers.map(u => `<option value="${esc(u.username)}">${esc(u.username)}</option>`).join('');
+    if (cur) sel.value = cur;
+  } catch (e) {}
+}
+
+function renderAdminUsers() {
+  const tbody = document.getElementById('adminUsersTbody');
+  if (!adminUsers.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">ยังไม่มี User</td></tr>'; return; }
+  tbody.innerHTML = adminUsers.map((u, i) => {
+    const pct = u.token_limit > 0 ? Math.min(Math.round(u.token_used / u.token_limit * 100), 100) : 0;
+    const barColor = pct > 90 ? 'bg-danger' : pct > 70 ? 'bg-warning' : 'bg-success';
+    const limitText = u.token_limit === 0 ? '∞' : u.token_limit.toLocaleString();
+    return `<tr>
+      <td class="text-muted small">${i+1}</td>
+      <td class="fw-semibold">${esc(u.username)}</td>
+      <td><span class="badge ${u.role==='admin'?'bg-warning text-dark':'bg-secondary'}">${u.role}</span></td>
+      <td>
+        ${u.token_limit > 0 ? `
+          <div class="progress mb-1" style="height:5px">
+            <div class="progress-bar ${barColor}" style="width:${pct}%"></div>
+          </div>` : ''}
+        <small class="text-muted">${u.token_used.toLocaleString()} / ${limitText}${u.token_limit>0?` (${pct}%)`:'  ไม่จำกัด'}</small>
+      </td>
+      <td class="text-center">
+        <span class="badge ${u.is_active?'bg-success':'bg-danger'}">${u.is_active?'Active':'Disabled'}</span>
+      </td>
+      <td class="text-muted small">${u.last_login ? fmtDate(u.last_login) : '-'}</td>
+      <td class="text-center">
+        <button class="btn btn-xs btn-outline-primary me-1" style="padding:2px 7px;font-size:.75rem" onclick="openUserModal(${u.id})" title="แก้ไข"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-xs btn-outline-info me-1" style="padding:2px 7px;font-size:.75rem" onclick="resetTokens(${u.id},'${esc(u.username)}')" title="Reset tokens"><i class="fas fa-undo"></i></button>
+        <button class="btn btn-xs btn-outline-danger" style="padding:2px 7px;font-size:.75rem" onclick="deleteUser(${u.id},'${esc(u.username)}')" title="ลบ"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openUserModal(id) {
+  document.getElementById('uEditId').value = id || '';
+  if (id) {
+    const u = adminUsers.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-user-edit me-2 text-warning"></i>Edit User';
+    document.getElementById('uUsername').value    = u.username;
+    document.getElementById('uPassword').value    = '';
+    document.getElementById('uRole').value        = u.role;
+    document.getElementById('uTokenLimit').value  = u.token_limit;
+    document.getElementById('uLimitDisp').textContent = u.token_limit === 0 ? '∞ ไม่จำกัด' : u.token_limit.toLocaleString();
+    document.getElementById('uActive').checked    = !!u.is_active;
+    document.getElementById('uPwdRequired').textContent = '(ไม่เปลี่ยน)';
+  } else {
+    document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-user-plus me-2 text-primary"></i>Add User';
+    document.getElementById('uUsername').value    = '';
+    document.getElementById('uPassword').value    = '';
+    document.getElementById('uRole').value        = 'user';
+    document.getElementById('uTokenLimit').value  = 100000;
+    document.getElementById('uLimitDisp').textContent = '100,000';
+    document.getElementById('uActive').checked    = true;
+    document.getElementById('uPwdRequired').textContent = '*';
+  }
+  userModal.show();
+}
+
+async function saveUser() {
+  const id       = document.getElementById('uEditId').value;
+  const username = document.getElementById('uUsername').value.trim();
+  const password = document.getElementById('uPassword').value;
+  const role     = document.getElementById('uRole').value;
+  const limit    = parseInt(document.getElementById('uTokenLimit').value) || 0;
+  const active   = document.getElementById('uActive').checked;
+
+  if (!username) return Swal.fire('ข้อผิดพลาด', 'กรุณากรอก Username', 'error');
+  if (!id && !password) return Swal.fire('ข้อผิดพลาด', 'กรุณากรอก Password', 'error');
+
+  const body = { username, role, token_limit: limit, is_active: active };
+  if (password) body.password = password;
+
+  try {
+    const r = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok) return Swal.fire('ข้อผิดพลาด', d.error, 'error');
+    userModal.hide();
+    await loadAdminUsers();
+    Swal.fire({ icon: 'success', title: id ? 'แก้ไขแล้ว' : 'เพิ่มแล้ว', timer: 1300, showConfirmButton: false });
+  } catch (e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+async function resetTokens(id, username) {
+  const res = await Swal.fire({
+    title: `Reset tokens ของ ${username}?`, icon: 'warning',
+    showCancelButton: true, confirmButtonColor: '#17a2b8',
+    confirmButtonText: 'Reset', cancelButtonText: 'ยกเลิก'
+  });
+  if (!res.isConfirmed) return;
+  await fetch(`/api/admin/users/${id}/reset-tokens`, { method: 'POST' });
+  await loadAdminUsers();
+  await loadAdminDashboard();
+  Swal.fire({ icon: 'success', title: 'Reset แล้ว', timer: 1000, showConfirmButton: false });
+}
+
+async function deleteUser(id, username) {
+  const res = await Swal.fire({
+    title: `ลบ User "${username}"?`, icon: 'warning',
+    showCancelButton: true, confirmButtonColor: '#d33',
+    confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก'
+  });
+  if (!res.isConfirmed) return;
+  const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+  const d = await r.json();
+  if (!r.ok) return Swal.fire('ข้อผิดพลาด', d.error, 'error');
+  await loadAdminUsers();
+  Swal.fire({ icon: 'success', title: 'ลบแล้ว', timer: 1000, showConfirmButton: false });
+}
+
+async function loadAdminLogs() {
+  const username = document.getElementById('logFilterUser')?.value || '';
+  const action   = document.getElementById('logFilterAction')?.value || '';
+  const url = `/api/admin/logs?limit=200${username ? '&username=' + encodeURIComponent(username) : ''}${action ? '&action=' + encodeURIComponent(action) : ''}`;
+  try {
+    const logs = await (await fetch(url)).json();
+    const tbody = document.getElementById('adminLogsTbody');
+    if (!logs.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">ไม่มี Log</td></tr>'; return; }
+    const actionColor = { login:'success', logout:'secondary', chat:'primary', build:'warning', token_limit_exceeded:'danger', token_reset:'info', user_created:'success', user_deleted:'danger' };
+    tbody.innerHTML = logs.map(l => `
+      <tr>
+        <td class="text-muted">${l.created_at}</td>
+        <td><strong>${esc(l.username)}</strong></td>
+        <td><span class="badge bg-${actionColor[l.action]||'secondary'}">${l.action}</span></td>
+        <td class="text-muted">${esc(l.model_name||'-')}</td>
+        <td class="text-end text-muted">${l.tokens_in||0}</td>
+        <td class="text-end text-muted">${l.tokens_out||0}</td>
+        <td class="text-end fw-semibold">${l.tokens_total||0}</td>
+        <td class="text-muted">${esc(l.detail||'-')}</td>
+      </tr>`).join('');
+  } catch (e) {}
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+(async () => {
+  const ok = await checkAuth();
+  if (ok) init();
+})();
+</script>
+</body>
+</html>

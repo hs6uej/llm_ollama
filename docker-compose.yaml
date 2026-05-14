@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  knowledge-manager:
+    build: .
+    container_name: ollama-knowledge-manager
+    ports:
+      - "4646:4646"
+    volumes:
+      - ./data:/app/data
+      - ./public:/app/public
+    restart: unless-stopped

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Ollama Knowledge Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      width: 100%; max-width: 400px;
+      background: #fff; border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4);
+      overflow: hidden;
+    }
+    .login-header {
+      background: linear-gradient(135deg, #6c63ff, #3f3d99);
+      padding: 2rem; text-align: center; color: #fff;
+    }
+    .login-header .brain-icon {
+      font-size: 2.8rem; margin-bottom: .5rem;
+    }
+    .login-body { padding: 2rem; }
+    .form-control:focus { border-color: #6c63ff; box-shadow: 0 0 0 .2rem rgba(108,99,255,.2); }
+    .btn-login {
+      background: linear-gradient(135deg, #6c63ff, #3f3d99);
+      border: none; width: 100%; padding: .75rem;
+      font-size: 1rem; font-weight: 600; border-radius: 10px;
+      color: #fff; transition: opacity .2s;
+    }
+    .btn-login:hover { opacity: .9; color: #fff; }
+    .btn-login:disabled { opacity: .6; }
+    .input-group-text { background: #f8f9fa; border-right: none; }
+    .form-control { border-left: none; }
+    .form-control:focus + .input-group-text,
+    .input-group-text + .form-control:focus { border-color: #6c63ff; }
+    .alert-error {
+      background: #fff3cd; border: 1px solid #ffc107;
+      border-radius: 10px; padding: .75rem 1rem;
+      color: #856404; font-size: .9rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-header">
+      <div class="brain-icon"><i class="fas fa-brain"></i></div>
+      <h4 class="fw-bold mb-0">Ollama Knowledge Manager</h4>
+      <small class="opacity-75">Sign in to continue</small>
+    </div>
+    <div class="login-body">
+      <div class="alert-error mb-3" id="errMsg">
+        <i class="fas fa-exclamation-triangle me-2"></i><span id="errText"></span>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold text-muted small">USERNAME</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-user text-muted"></i></span>
+          <input type="text" class="form-control" id="username" placeholder="username"
+                 autocomplete="username" autofocus>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-semibold text-muted small">PASSWORD</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-lock text-muted"></i></span>
+          <input type="password" class="form-control" id="password" placeholder="password"
+                 autocomplete="current-password">
+          <button class="btn btn-outline-secondary" type="button" id="togglePwd">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-login" id="loginBtn" onclick="doLogin()">
+        <i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ
+      </button>
+      <p class="text-center text-muted small mt-3 mb-0">
+        Default: <code>admin</code> / <code>admin</code>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Redirect if already logged in
+    const existingToken = localStorage.getItem('auth_token');
+    if (existingToken) {
+      fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${existingToken}` } })
+        .then(r => { if (r.ok) window.location.href = '/'; })
+        .catch(() => {});
+    }
+
+    document.getElementById('togglePwd').addEventListener('click', () => {
+      const inp = document.getElementById('password');
+      const ico = document.querySelector('#togglePwd i');
+      if (inp.type === 'password') { inp.type = 'text'; ico.className = 'fas fa-eye-slash'; }
+      else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
+    });
+
+    document.getElementById('password').addEventListener('keypress', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+    document.getElementById('username').addEventListener('keypress', e => {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+
+    async function doLogin() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('loginBtn');
+      const errBox = document.getElementById('errMsg');
+      const errText = document.getElementById('errText');
+
+      if (!username || !password) {
+        errText.textContent = 'กรุณากรอก username และ password';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>กำลังเข้าสู่ระบบ...';
+      errBox.style.display = 'none';
+
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const d = await r.json();
+
+        if (r.ok) {
+          localStorage.setItem('auth_token', d.token);
+          localStorage.setItem('auth_user', JSON.stringify(d.user));
+          window.location.href = '/';
+        } else {
+          errText.textContent = d.error || 'เข้าสู่ระบบไม่สำเร็จ';
+          errBox.style.display = 'block';
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ';
+        }
+      } catch (e) {
+        errText.textContent = 'เชื่อมต่อ server ไม่ได้';
+        errBox.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ';
+      }
+    }
+  </script>
+</body>
+</html>
